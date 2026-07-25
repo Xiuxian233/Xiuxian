@@ -15,7 +15,7 @@ const source = await readFile('src/main.js', 'utf8');
 if (source.includes("import './styles.css'")) {
   throw new Error('src/main.js must not import CSS when served without a bundler');
 }
-const required = ['generateDailyEvent', 'completeEvent', 'maybeDropCollectible', 'shareLatestEvent', 'ArtifactDetail', 'createSectPost', 'likeSectPost', 'setArtifactFilter'];
+const required = ['generateDailyEvent', 'completeEvent', 'maybeDropCollectible', 'shareLatestEvent', 'ArtifactDetail', 'createSectPost', 'likeSectPost', 'setArtifactFilter', 'WeChatLoginModal', 'mockWeChatLogin', 'showToast'];
 for (const token of required) {
   if (!source.includes(token)) throw new Error(`Missing ${token}`);
 }

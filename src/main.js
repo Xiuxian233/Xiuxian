@@ -33,13 +33,27 @@ function loadState() {
     artifactFilter: parsed.artifactFilter || 'all',
     selectedArtifactId: parsed.selectedArtifactId || null,
     likedPostIds: parsed.likedPostIds || [],
+    loginProvider: parsed.loginProvider || null,
+    toast: '',
+    isWeChatLoginOpen: false,
+    isGenerating: false,
   };
 }
 
 let state = loadState();
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  const { toast, isWeChatLoginOpen, isGenerating, ...persistedState } = state;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));
+}
+
+function showToast(message) {
+  state.toast = message;
+  render();
+  window.setTimeout(() => {
+    state.toast = '';
+    render();
+  }, 1800);
 }
 
 function seedPosts() {
@@ -50,13 +64,32 @@ function seedPosts() {
   ];
 }
 
-function createProfile(formData) {
+function createProfile(formData, loginProvider = 'guest') {
   const daoName = formData.get('daoName')?.trim() || '无名小修';
   const city = formData.get('city')?.trim() || '杭州';
-  state.user = { id: uid('user'), nickname: daoName, daoName, city, realm: '炼气一层', createdAt: new Date().toISOString() };
+  state.loginProvider = loginProvider;
+  state.isWeChatLoginOpen = false;
+  state.user = { id: uid('user'), nickname: daoName, daoName, city, realm: '炼气一层', loginProvider, createdAt: new Date().toISOString() };
   state.profile = { personalitySummary: '初入仙途，道心未定，仍在观察天地与人情。', cultivationPath: '尚未定下道途。', currentRealm: '炼气一层', majorEventsSummary: '刚刚踏入修行世界，因果尚浅。', relationshipSummary: '在本城分舵暂无深交。', artifactSummary: '尚无可载入传记的灵物。', worldStateSummary: `${city}附近灵气渐浓，似有旧日仙缘复苏。` };
   saveState();
+  showToast(loginProvider === 'wechat' ? '微信扫码成功，已踏入仙途' : '已创建修仙身份');
+}
+
+function openWeChatLogin() {
+  state.isWeChatLoginOpen = true;
   render();
+}
+
+function closeWeChatLogin() {
+  state.isWeChatLoginOpen = false;
+  render();
+}
+
+function mockWeChatLogin() {
+  const formData = new FormData();
+  formData.set('daoName', `微信道友${Math.floor(Math.random() * 900 + 100)}`);
+  formData.set('city', '杭州');
+  createProfile(formData, 'wechat');
 }
 
 function currentEvent() {
@@ -83,9 +116,14 @@ function completeEvent(eventId, choiceId) {
   state.profile.personalitySummary = `近来更显${choice.tendency}，行事不再只是随波逐流。`;
   state.profile.majorEventsSummary = `曾在「${event.title}」中选择「${choice.text}」，由此留下新的因果。`;
   state.profile.worldStateSummary = `${state.user.city}附近的灵气因「${event.title}」出现细微变化，后续事件会继续受此影响。`;
-  maybeDropCollectible(event, choice);
-  saveState();
+  state.isGenerating = true;
   render();
+  window.setTimeout(() => {
+    maybeDropCollectible(event, choice);
+    state.isGenerating = false;
+    saveState();
+    showToast(event.collectibleId ? '因果凝成藏品' : '今日因果已写入档案');
+  }, 520);
 }
 
 function maybeDropCollectible(event, choice) {
@@ -162,19 +200,27 @@ function setTab(tab) {
 }
 
 function App() {
-  if (!state.user) return Onboarding();
+  const body = state.user ? LoggedInApp() : Onboarding();
+  return `${body}${state.toast ? `<div class="toast">${escapeHTML(state.toast)}</div>` : ''}${state.isWeChatLoginOpen ? WeChatLoginModal() : ''}`;
+}
+
+function LoggedInApp() {
   generateDailyEvent();
-  return `<section class="phone-shell"><header class="hero"><p class="eyebrow">青云纪 · AI 修仙世界</p><h1>${escapeHTML(state.user.daoName)}</h1><div class="chips"><span>${escapeHTML(state.user.city)}分舵</span><span>${escapeHTML(state.profile.currentRealm)}</span><span>${state.collectibles.length} 件藏品</span></div></header>${state.tab === 'today' ? TodayView() : ''}${state.tab === 'profile' ? ProfileView() : ''}${state.tab === 'artifacts' ? ArtifactView() : ''}${state.tab === 'sect' ? SectView() : ''}<nav class="tabbar">${TabButton('today', '今日')}${TabButton('profile', '档案')}${TabButton('artifacts', '藏品')}${TabButton('sect', '分舵')}</nav></section>`;
+  return `<section class="phone-shell"><header class="hero"><p class="eyebrow">青云纪 · AI 修仙世界</p><h1>${escapeHTML(state.user.daoName)}</h1><div class="chips"><span>${escapeHTML(state.user.city)}分舵</span><span>${escapeHTML(state.profile.currentRealm)}</span><span>${state.collectibles.length} 件藏品</span><span>${state.loginProvider === 'wechat' ? '微信已登录' : '访客身份'}</span></div></header>${state.tab === 'today' ? TodayView() : ''}${state.tab === 'profile' ? ProfileView() : ''}${state.tab === 'artifacts' ? ArtifactView() : ''}${state.tab === 'sect' ? SectView() : ''}<nav class="tabbar">${TabButton('today', '今日')}${TabButton('profile', '档案')}${TabButton('artifacts', '藏品')}${TabButton('sect', '分舵')}</nav></section>`;
 }
 
 function Onboarding() {
-  return `<section class="onboarding"><div class="moon"></div><p class="eyebrow">一个会记住你的 AI 修仙世界</p><h1>今日入道，明日因果自来。</h1><form id="profile-form" class="card form-card"><label>道号<input name="daoName" placeholder="如：云栖子" maxlength="12" /></label><label>所在城市<input name="city" placeholder="如：杭州" maxlength="12" /></label><button type="submit">踏入仙途</button></form></section>`;
+  return `<section class="onboarding"><div class="moon"></div><p class="eyebrow">一个会记住你的 AI 修仙世界</p><h1>今日入道，明日因果自来。</h1><div class="login-actions"><button id="wechat-login" class="wechat-button">微信扫码登录</button><button id="guest-login" class="secondary">先以访客体验</button></div><form id="profile-form" class="card form-card"><label>道号<input name="daoName" placeholder="如：云栖子" maxlength="12" /></label><label>所在城市<input name="city" placeholder="如：杭州" maxlength="12" /></label><button type="submit">创建访客修仙身份</button></form></section>`;
+}
+
+function WeChatLoginModal() {
+  return `<div class="modal-backdrop"><section class="card qr-modal"><button class="icon-button" id="close-wechat-login">×</button><p class="eyebrow">微信扫码登录</p><h2>用微信进入修仙世界</h2><div class="qr-code"><span></span><span></span><span></span><em>修仙<br />登录</em></div><p class="hint">静态 MVP 暂为模拟扫码。真实微信登录需要后端 OAuth 回调与开放平台配置。</p><button id="mock-wechat-confirm" class="wechat-button">我已扫码，进入</button></section></div>`;
 }
 
 function TodayView() {
   const event = currentEvent();
   const collectible = state.collectibles.find((item) => item.id === event.collectibleId);
-  return `<article class="card scroll-card"><p class="date">${event.date}</p><h2>${escapeHTML(event.title)}</h2><p>${escapeHTML(event.content).replace(/\n/g, '<br />')}</p><div class="choices">${event.selectedChoiceId ? `<div class="result">${escapeHTML(event.result)}</div>` : event.choices.map((choice) => `<button data-choice="${choice.id}" data-event="${event.id}">${escapeHTML(choice.text)}<small>${escapeHTML(choice.tendency)}</small></button>`).join('')}</div>${collectible ? ArtifactDrop(collectible) : ''}</article>`;
+  return `<article class="card scroll-card"><p class="date">${event.date}</p><h2>${escapeHTML(event.title)}</h2><p>${escapeHTML(event.content).replace(/\n/g, '<br />')}</p><div class="choices">${state.isGenerating ? '<div class="skeleton">天机推演中，请稍候……</div>' : event.selectedChoiceId ? `<div class="result">${escapeHTML(event.result)}</div>` : event.choices.map((choice) => `<button data-choice="${choice.id}" data-event="${event.id}">${escapeHTML(choice.text)}<small>${escapeHTML(choice.tendency)}</small></button>`).join('')}</div>${collectible ? ArtifactDrop(collectible) : ''}</article>`;
 }
 
 function ArtifactDrop(collectible) {
@@ -246,6 +292,10 @@ document.addEventListener('click', (event) => {
   const like = event.target.closest('[data-like-post]');
   if (like) likeSectPost(like.dataset.likePost);
   if (event.target.id === 'share-latest') shareLatestEvent();
+  if (event.target.id === 'wechat-login') openWeChatLogin();
+  if (event.target.id === 'guest-login') document.querySelector('#profile-form')?.scrollIntoView({ behavior: 'smooth' });
+  if (event.target.id === 'close-wechat-login') closeWeChatLogin();
+  if (event.target.id === 'mock-wechat-confirm') mockWeChatLogin();
 });
 
 render();

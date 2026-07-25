@@ -10,7 +10,19 @@
 - 完成事件后有概率获得唯一数字藏品。
 - 用户可在同城市宗门分舵分享自己的修仙经历。
 
-## 本地运行
+## Windows 本地运行
+
+1. 安装 Node.js 18 或更高版本。
+2. 在项目目录打开 PowerShell 或 Windows Terminal。
+3. 执行：
+
+```powershell
+npm run dev
+```
+
+打开 `http://127.0.0.1:5173` 查看应用。
+
+## macOS / Linux 本地运行
 
 ```bash
 npm run dev

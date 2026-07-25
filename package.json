@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "python3 -m http.server 5173",
+    "dev": "node scripts/serve.mjs --port 5173",
     "build": "node scripts/build.mjs",
-    "preview": "python3 -m http.server 4173 -d dist",
+    "preview": "node scripts/serve.mjs --dist --port 4173",
     "test": "node scripts/smoke-test.mjs"
   }
 }

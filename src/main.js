@@ -1,5 +1,3 @@
-import './styles.css';
-
 const STORAGE_KEY = 'xiuxian-ai-world-v1';
 const todayKey = () => new Date().toISOString().slice(0, 10);
 const uid = (prefix) => `${prefix}_${crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)}`;
